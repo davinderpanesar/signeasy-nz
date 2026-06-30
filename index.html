@@ -641,8 +641,18 @@
       ✍️ <strong>Signature</strong> selected — click anywhere on the document to place it
     </div>
 
+    <div class="page-nav" id="page-nav" style="display:none;align-items:center;justify-content:center;gap:14px;margin-bottom:12px;">
+      <button class="btn btn-ghost btn-sm" id="prev-page-btn" onclick="changePage(-1)">← Prev</button>
+      <span style="font-size:13px;color:var(--muted);">Page <strong id="page-current" style="color:var(--text);">1</strong> of <strong id="page-total" style="color:var(--text);">1</strong></span>
+      <button class="btn btn-ghost btn-sm" id="next-page-btn" onclick="changePage(1)">Next →</button>
+    </div>
+
     <div id="pdf-container">
       <canvas id="pdf-canvas"></canvas>
+    </div>
+
+    <div class="instruction-tip" style="margin-top:10px;">
+      💡 Fields are saved per page. Switch pages above to place signature/date fields on other pages too.
     </div>
 
     <div class="spinner" id="pdf-spinner"><div class="spin"></div> Loading document preview…</div>
@@ -763,6 +773,9 @@ const state = {
   fields: [],
   selectedFieldType: 'Signature',
   pdfRendered: false,
+  pdfDoc: null,
+  currentPage: 1,
+  numPages: 1,
   refId: ''
 };
 
@@ -884,52 +897,101 @@ function removeSigner(btn) {
 
 // ── PDF PREVIEW ──
 async function renderPdfPreview() {
-  if (state.pdfRendered || !state.file) {
-    if (!state.file) { toast('No document uploaded.', 'error'); goStep(1); }
-    return;
-  }
+  if (!state.file) { toast('No document uploaded.', 'error'); goStep(1); return; }
 
-  const spinner = document.getElementById('pdf-spinner');
-  spinner.classList.add('show');
+  if (!state.pdfRendered) {
+    const spinner = document.getElementById('pdf-spinner');
+    spinner.classList.add('show');
 
-  try {
-    const arrayBuffer = await state.file.arrayBuffer();
+    try {
+      if (state.file.name.toLowerCase().endsWith('.pdf')) {
+        const arrayBuffer = await state.file.arrayBuffer();
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        state.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        state.numPages = state.pdfDoc.numPages;
+        state.currentPage = 1;
 
-    if (state.file.name.endsWith('.pdf')) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1);
+        if (state.numPages > 1) {
+          document.getElementById('page-nav').style.display = 'flex';
+          document.getElementById('page-total').textContent = state.numPages;
+        } else {
+          document.getElementById('page-nav').style.display = 'none';
+        }
+      } else {
+        state.pdfDoc = null;
+        state.numPages = 1;
+        state.currentPage = 1;
+        document.getElementById('page-nav').style.display = 'none';
+      }
+
       const container = document.getElementById('pdf-container');
-      const canvas = document.getElementById('pdf-canvas');
-      const viewport = page.getViewport({ scale: container.offsetWidth / page.getViewport({ scale: 1 }).width });
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-    } else {
-      // For non-PDF: show a styled placeholder
-      const canvas = document.getElementById('pdf-canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = 600; canvas.height = 800;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 600, 800);
-      ctx.fillStyle = '#1e1e1e';
-      ctx.font = '16px Inter, sans-serif';
-      ctx.fillText(`📄 ${state.file.name}`, 40, 60);
-      ctx.fillStyle = '#888';
-      ctx.font = '13px Inter, sans-serif';
-      ctx.fillText('(PDF preview not available for this file type)', 40, 90);
-      ctx.fillText('Field placement is still fully supported below.', 40, 110);
+      container.onclick = placeField;
+      state.pdfRendered = true;
+    } catch (err) {
+      toast('Could not render preview. Fields still work ✓', 'error');
     }
-
-    // Attach click handler for field placement
-    const container = document.getElementById('pdf-container');
-    container.onclick = placeField;
-    state.pdfRendered = true;
-  } catch (err) {
-    toast('Could not render preview. Fields still work ✓', 'error');
+    spinner.classList.remove('show');
   }
-  spinner.classList.remove('show');
+
+  await renderCurrentPage();
+}
+
+async function renderCurrentPage() {
+  const canvas = document.getElementById('pdf-canvas');
+  const container = document.getElementById('pdf-container');
+
+  if (state.pdfDoc) {
+    const page = await state.pdfDoc.getPage(state.currentPage);
+    const viewport = page.getViewport({ scale: container.offsetWidth / page.getViewport({ scale: 1 }).width });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  } else {
+    const ctx = canvas.getContext('2d');
+    canvas.width = 600; canvas.height = 800;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 600, 800);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.font = '16px Inter, sans-serif';
+    ctx.fillText(`📄 ${state.file.name}`, 40, 60);
+    ctx.fillStyle = '#888';
+    ctx.font = '13px Inter, sans-serif';
+    ctx.fillText('(PDF preview not available for this file type)', 40, 90);
+    ctx.fillText('Field placement is still fully supported below.', 40, 110);
+  }
+
+  document.getElementById('page-current').textContent = state.currentPage;
+  document.getElementById('prev-page-btn').disabled = state.currentPage <= 1;
+  document.getElementById('next-page-btn').disabled = state.currentPage >= state.numPages;
+
+  renderFieldsForCurrentPage();
+}
+
+function changePage(delta) {
+  const newPage = state.currentPage + delta;
+  if (newPage < 1 || newPage > state.numPages) return;
+  state.currentPage = newPage;
+  renderCurrentPage();
+}
+
+function renderFieldsForCurrentPage() {
+  const container = document.getElementById('pdf-container');
+  container.querySelectorAll('.field-overlay').forEach(e => e.remove());
+
+  state.fields
+    .filter(f => f.page === state.currentPage)
+    .forEach(field => {
+      const el = document.createElement('div');
+      el.className = 'field-overlay';
+      el.id = field.id;
+      el.style.left = field.x + '%';
+      el.style.top = field.y + '%';
+      el.style.transform = 'translate(-50%, -50%)';
+      el.innerHTML = `${getFieldIcon(field.type)} ${field.type} <span class="del-field" onclick="removeField('${field.id}',event)">✕</span>`;
+      makeDraggable(el, field);
+      container.appendChild(el);
+    });
 }
 
 // ── FIELD PLACEMENT ──
@@ -950,7 +1012,7 @@ function placeField(e) {
   const pct_y = (y / container.offsetHeight * 100).toFixed(1);
 
   const fieldId = 'field_' + Date.now();
-  const field = { id: fieldId, type: state.selectedFieldType, x: pct_x, y: pct_y };
+  const field = { id: fieldId, type: state.selectedFieldType, x: pct_x, y: pct_y, page: state.currentPage };
   state.fields.push(field);
 
   const el = document.createElement('div');
@@ -984,7 +1046,7 @@ function updateFieldsSummary() {
     return;
   }
   el.innerHTML = state.fields.map(f =>
-    `<span class="field-chip">${getFieldIcon(f.type)} ${f.type}</span>`
+    `<span class="field-chip">${getFieldIcon(f.type)} ${f.type}${state.numPages > 1 ? ' (p.' + f.page + ')' : ''}</span>`
   ).join('');
 }
 
@@ -1159,6 +1221,8 @@ function startNew() {
   state.file = null; state.signers = []; state.fields = [];
   state.pdfRendered = false; state.ownerEmail = ''; state.ownerName = '';
   state.docTitle = ''; state.docMessage = '';
+  state.pdfDoc = null; state.currentPage = 1; state.numPages = 1;
+  document.getElementById('page-nav').style.display = 'none';
   document.getElementById('file-input').value = '';
   document.getElementById('file-chosen').classList.remove('show');
   document.getElementById('owner-email').value = '';
@@ -1183,3 +1247,4 @@ function toast(msg, type = 'info') {
 </script>
 </body>
 </html>
+
