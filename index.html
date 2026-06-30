@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SignEasy NZ — E-Signature Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+
+  :root {
+    --bg:        #0d0d0d;
+    --surface:   #161616;
+    --card:      #1e1e1e;
+    --border:    #2a2a2a;
+    --red:       #c0392b;
+    --red-bright:#e74c3c;
+    --red-glow:  rgba(192,57,43,0.18);
+    --text:      #f0f0f0;
+    --muted:     #888;
+    --success:   #27ae60;
+    --warning:   #f39c12;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--red-bright); }
+  .badge {
+    font-size: 10px;
+    background: var(--red);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── STEPPER ── */
+  .stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 20px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    transition: all 0.3s;
+  }
+  .step-circle.active {
+    border-color: var(--red-bright);
+    background: var(--red-glow);
+    color: var(--red-bright);
+  }
+  .step-circle.done {
+    border-color: var(--success);
+    background: rgba(39,174,96,0.15);
+    color: var(--success);
+  }
+  .step-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .step-label.active { color: var(--text); }
+  .step-connector {
+    width: 30px;
+    height: 1px;
+    background: var(--border);
+    margin: 0 6px;
+    flex-shrink: 0;
+  }
+  .step-connector.done { background: var(--success); }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 16px 80px;
+  }
+
+  /* ── PANELS ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .panel-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    margin-bottom: 6px;
+  }
+  .panel-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input[type=text], input[type=email], textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 11px 14px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 16px;
+  }
+  input:focus, textarea:focus {
+    border-color: var(--red);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--red); background: var(--red-glow); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-zone h3 { font-size: 16px; margin-bottom: 6px; }
+  .upload-zone p { color: var(--muted); font-size: 13px; }
+  .file-chosen {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: rgba(39,174,96,0.1);
+    border: 1px solid var(--success);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 14px;
+  }
+  .file-chosen.show { display: flex; }
+  .file-chosen-icon { font-size: 24px; }
+  .file-chosen-name { font-size: 14px; font-weight: 500; }
+  .file-chosen-size { font-size: 12px; color: var(--muted); }
+
+  /* ── SIGNER ROWS ── */
+  .signer-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    margin-bottom: 10px;
+  }
+  .signer-row input { margin-bottom: 0; flex: 1; }
+  .signer-num {
+    width: 32px;
+    height: 42px;
+    border-radius: 8px;
+    background: var(--red-glow);
+    border: 1px solid var(--red);
+    color: var(--red-bright);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .btn-remove {
+    width: 36px;
+    height: 42px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .btn-remove:hover { border-color: var(--red); color: var(--red-bright); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .btn-primary {
+    background: var(--red);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--red-bright); transform: translateY(-1px); box-shadow: 0 4px 16px var(--red-glow); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--red); color: var(--red-bright); }
+  .btn-success {
+    background: var(--success);
+    color: #fff;
+  }
+  .btn-sm { padding: 8px 16px; font-size: 13px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  /* ── PDF VIEWER ── */
+  #pdf-container {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    cursor: crosshair;
+    display: inline-block;
+    width: 100%;
+  }
+  #pdf-canvas { display: block; width: 100%; height: auto; }
+
+  /* ── FIELD OVERLAYS ── */
+  .field-overlay {
+    position: absolute;
+    border: 2px solid var(--red-bright);
+    border-radius: 4px;
+    background: rgba(231,76,60,0.15);
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--red-bright);
+    user-select: none;
+    transition: background 0.15s;
+    min-width: 100px;
+    min-height: 30px;
+  }
+  .field-overlay:hover { background: rgba(231,76,60,0.28); }
+  .field-overlay .del-field {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 18px;
+    height: 18px;
+    background: var(--red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+    color: #fff;
+  }
+
+  /* ── FIELD TOOLBAR ── */
+  .field-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .field-btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .field-btn:hover, .field-btn.selected { border-color: var(--red); color: var(--red-bright); background: var(--red-glow); }
+  .instruction-tip {
+    background: var(--red-glow);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--red-bright);
+    margin-bottom: 14px;
+  }
+
+  /* ── REVIEW TABLE ── */
+  .review-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .review-table td { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .review-table td:first-child { color: var(--muted); width: 140px; }
+  .signer-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--red-glow);
+    border: 1px solid var(--red);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: var(--red-bright);
+    margin: 3px;
+  }
+  .field-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 3px;
+  }
+
+  /* ── SUCCESS SCREEN ── */
+  .success-hero {
+    text-align: center;
+    padding: 40px 0 32px;
+  }
+  .success-icon {
+    width: 72px;
+    height: 72px;
+    background: rgba(39,174,96,0.15);
+    border: 2px solid var(--success);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 20px;
+  }
+  .ref-id {
+    font-family: 'Inter', monospace;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: var(--muted);
+    display: inline-block;
+    margin-top: 8px;
+  }
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .timeline-item {
+    display: flex;
+    gap: 14px;
+    padding-bottom: 20px;
+    position: relative;
+  }
+  .timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 16px;
+    top: 32px;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+  .timeline-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .timeline-dot.done { border-color: var(--success); background: rgba(39,174,96,0.1); }
+  .timeline-content h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .timeline-content p { font-size: 12px; color: var(--muted); }
+
+  /* ── OWNER EMAIL SECTION ── */
+  .owner-section {
+    background: linear-gradient(135deg, rgba(192,57,43,0.08), rgba(192,57,43,0.03));
+    border: 1px solid rgba(192,57,43,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .owner-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .owner-section p { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+
+  /* ── LOADING SPINNER ── */
+  .spinner {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .spinner.show { display: flex; }
+  .spin {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--red-bright);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    max-width: 300px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--success); }
+  #toast.error { border-color: var(--red); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 480px) {
+    .panel-title { font-size: 22px; }
+    .step-label { display: none; }
+    .btn-row { flex-direction: column; }
+    .btn-row .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Sign<span>Easy</span> NZ</div>
+  <span class="badge">Beta</span>
+</header>
+
+<!-- STEPPER -->
+<div class="stepper" id="stepper">
+  <div class="step-item">
+    <div class="step-circle active" id="sc1">1</div>
+    <span class="step-label active" id="sl1">Upload</span>
+  </div>
+  <div class="step-connector" id="con1"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc2">2</div>
+    <span class="step-label" id="sl2">Signers</span>
+  </div>
+  <div class="step-connector" id="con2"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc3">3</div>
+    <span class="step-label" id="sl3">Place Fields</span>
+  </div>
+  <div class="step-connector" id="con3"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc4">4</div>
+    <span class="step-label" id="sl4">Review</span>
+  </div>
+  <div class="step-connector" id="con4"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc5">5</div>
+    <span class="step-label" id="sl5">Send</span>
+  </div>
+</div>
+
+<main>
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="panel active" id="step1">
+    <div class="panel-title">Upload your document</div>
+    <div class="panel-sub">Upload the PDF you need signed. It will be sent to your signers exactly as uploaded.</div>
+
+    <div class="owner-section">
+      <h3>📧 Your (Owner) Email</h3>
+      <p>You'll receive a signed copy at this address once all signers complete signing.</p>
+      <label>Your email address</label>
+      <input type="email" id="owner-email" placeholder="you@example.com"/>
+      <label>Your name</label>
+      <input type="text" id="owner-name" placeholder="e.g. Davinder Panesar"/>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Document</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".pdf,.txt,.doc,.docx"/>
+        <div class="upload-icon">📄</div>
+        <h3>Drop your PDF here</h3>
+        <p>or click to browse — PDF, DOC, TXT supported</p>
+      </div>
+      <div class="file-chosen" id="file-chosen">
+        <span class="file-chosen-icon">✅</span>
+        <div>
+          <div class="file-chosen-name" id="file-name">document.pdf</div>
+          <div class="file-chosen-size" id="file-size">0 KB</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <label>Document title</label>
+        <input type="text" id="doc-title" placeholder="e.g. Vehicle Sale Agreement — Toyota Aqua 2023"/>
+        <label>Message to signers (optional)</label>
+        <textarea id="doc-message" placeholder="e.g. Please review and sign this vehicle purchase agreement at your earliest convenience."></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="goStep(2)">Continue to Signers →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: SIGNERS -->
+  <div class="panel" id="step2">
+    <div class="panel-title">Add signers</div>
+    <div class="panel-sub">Add everyone who needs to sign. They'll each receive a signing link by email.</div>
+
+    <div class="card">
+      <div class="card-title">Signers</div>
+      <div id="signers-list"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addSigner()" style="margin-top:4px;">+ Add another signer</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+      <button class="btn btn-primary" onclick="goStep(3)">Continue to Fields →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: PLACE FIELDS -->
+  <div class="panel" id="step3">
+    <div class="panel-title">Place signature fields</div>
+    <div class="panel-sub">Select a field type, then click where you want it on the document.</div>
+
+    <div class="field-toolbar" id="field-toolbar">
+      <button class="field-btn selected" data-type="Signature" onclick="selectField(this)">✍️ Signature</button>
+      <button class="field-btn" data-type="Date" onclick="selectField(this)">📅 Date</button>
+      <button class="field-btn" data-type="Full Name" onclick="selectField(this)">👤 Full Name</button>
+      <button class="field-btn" data-type="Initials" onclick="selectField(this)">🔤 Initials</button>
+      <button class="field-btn" data-type="Text" onclick="selectField(this)">💬 Text</button>
+    </div>
+
+    <div class="instruction-tip" id="field-tip">
+      ✍️ <strong>Signature</strong> selected — click anywhere on the document to place it
+    </div>
+
+    <div id="pdf-container">
+      <canvas id="pdf-canvas"></canvas>
+    </div>
+
+    <div class="spinner" id="pdf-spinner"><div class="spin"></div> Loading document preview…</div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title">Placed fields</div>
+      <div id="fields-summary" style="color:var(--muted);font-size:13px;">No fields placed yet. Click on the document above to add fields.</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(2)">← Back</button>
+      <button class="btn btn-primary" onclick="goStep(4)">Continue to Review →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: REVIEW -->
+  <div class="panel" id="step4">
+    <div class="panel-title">Review & confirm</div>
+    <div class="panel-sub">Check everything looks right before sending.</div>
+
+    <div class="card">
+      <div class="card-title">Document details</div>
+      <table class="review-table">
+        <tr><td>Document</td><td id="r-docname">—</td></tr>
+        <tr><td>Title</td><td id="r-title">—</td></tr>
+        <tr><td>Owner email</td><td id="r-owner">—</td></tr>
+        <tr><td>Signers</td><td id="r-signers">—</td></tr>
+        <tr><td>Fields placed</td><td id="r-fields">—</td></tr>
+        <tr><td>Message</td><td id="r-message" style="color:var(--muted);">—</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">What happens next</div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot done">📤</div>
+          <div class="timeline-content">
+            <h4>Document sent to signers</h4>
+            <p>Each signer receives an email with their unique signing link</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">✍️</div>
+          <div class="timeline-content">
+            <h4>Signers complete their fields</h4>
+            <p>They open the link, fill in signature, date, name as required</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot">📩</div>
+          <div class="timeline-content">
+            <h4>Signed copies delivered</h4>
+            <p>Both you and each signer automatically receive the completed document</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(3)">← Back</button>
+      <button class="btn btn-primary" onclick="sendDocument()">🚀 Send for Signing</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: SENT -->
+  <div class="panel" id="step5">
+    <div class="success-hero">
+      <div class="success-icon">✅</div>
+      <div class="panel-title">Document sent!</div>
+      <div class="panel-sub">Your signers have been notified. You'll receive a copy once everyone has signed.</div>
+      <div class="ref-id" id="ref-id">REF: —</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Delivery status</div>
+      <div id="delivery-status"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Document summary</div>
+      <table class="review-table">
+        <tr><td>Document</td><td id="s-docname">—</td></tr>
+        <tr><td>Sent by</td><td id="s-owner">—</td></tr>
+        <tr><td>Date sent</td><td id="s-date">—</td></tr>
+        <tr><td>Fields</td><td id="s-fields">—</td></tr>
+      </table>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="startNew()">Start new document</button>
+      <button class="btn btn-success" onclick="downloadSummary()">⬇ Download summary</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── EMAILJS CONFIG ──
+const EMAILJS_SERVICE_ID = 'service_yb4c2in';
+const EMAILJS_TEMPLATE_ID = 'template_6yscs6o';
+const EMAILJS_PUBLIC_KEY = 'hxVMD-DkAUtwqlgJc';
+
+emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+
+// ── STATE ──
+const state = {
+  currentStep: 1,
+  file: null,
+  ownerEmail: '',
+  ownerName: '',
+  docTitle: '',
+  docMessage: '',
+  signers: [],
+  fields: [],
+  selectedFieldType: 'Signature',
+  pdfRendered: false,
+  refId: ''
+};
+
+// ── STEP NAVIGATION ──
+function goStep(n) {
+  if (n === 2 && !validateStep1()) return;
+  if (n === 3 && !validateStep2()) return;
+  if (n === 4 && !validateStep3()) return;
+
+  document.getElementById(`step${state.currentStep}`).classList.remove('active');
+  document.getElementById(`step${n}`).classList.add('active');
+
+  // update stepper
+  for (let i = 1; i <= 5; i++) {
+    const c = document.getElementById(`sc${i}`);
+    const l = document.getElementById(`sl${i}`);
+    c.className = 'step-circle';
+    l.className = 'step-label';
+    if (i < n) { c.classList.add('done'); c.textContent = '✓'; }
+    else if (i === n) { c.classList.add('active'); c.textContent = i; l.classList.add('active'); }
+    else { c.textContent = i; }
+    if (i < 5) {
+      const con = document.getElementById(`con${i}`);
+      con.className = 'step-connector' + (i < n ? ' done' : '');
+    }
+  }
+
+  state.currentStep = n;
+
+  if (n === 2) initSigners();
+  if (n === 3) renderPdfPreview();
+  if (n === 4) populateReview();
+}
+
+// ── VALIDATIONS ──
+function validateStep1() {
+  const oe = document.getElementById('owner-email').value.trim();
+  const on = document.getElementById('owner-name').value.trim();
+  const dt = document.getElementById('doc-title').value.trim();
+  if (!oe || !oe.includes('@')) { toast('Please enter a valid owner email.', 'error'); return false; }
+  if (!on) { toast('Please enter your name.', 'error'); return false; }
+  if (!state.file) { toast('Please upload a document first.', 'error'); return false; }
+  if (!dt) { toast('Please add a document title.', 'error'); return false; }
+  state.ownerEmail = oe; state.ownerName = on;
+  state.docTitle = dt; state.docMessage = document.getElementById('doc-message').value.trim();
+  return true;
+}
+
+function validateStep2() {
+  const rows = document.querySelectorAll('.signer-email-input');
+  if (rows.length === 0) { toast('Add at least one signer.', 'error'); return false; }
+  state.signers = [];
+  for (const r of rows) {
+    const email = r.value.trim();
+    const name = r.previousElementSibling?.value?.trim() || '';
+    if (!email || !email.includes('@')) { toast('Check signer email addresses.', 'error'); return false; }
+    state.signers.push({ name, email });
+  }
+  return true;
+}
+
+function validateStep3() {
+  if (state.fields.length === 0) { toast('Place at least one field on the document.', 'error'); return false; }
+  return true;
+}
+
+// ── FILE UPLOAD ──
+const fileInput = document.getElementById('file-input');
+const uploadZone = document.getElementById('upload-zone');
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(f) {
+  if (!f) return;
+  state.file = f;
+  state.pdfRendered = false;
+  document.getElementById('file-name').textContent = f.name;
+  document.getElementById('file-size').textContent = (f.size / 1024).toFixed(1) + ' KB';
+  document.getElementById('file-chosen').classList.add('show');
+  if (!document.getElementById('doc-title').value) {
+    document.getElementById('doc-title').value = f.name.replace(/\.[^.]+$/, '');
+  }
+  toast('Document loaded ✓', 'success');
+}
+
+// ── SIGNERS ──
+function initSigners() {
+  const list = document.getElementById('signers-list');
+  if (list.children.length === 0) addSigner();
+}
+
+function addSigner() {
+  const list = document.getElementById('signers-list');
+  const idx = list.children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'signer-row';
+  div.innerHTML = `
+    <div class="signer-num">${idx}</div>
+    <input type="text" placeholder="Signer name" style="flex:1;margin-bottom:0;"/>
+    <input type="email" class="signer-email-input" placeholder="signer@email.com" style="flex:1.5;margin-bottom:0;"/>
+    <button class="btn-remove" onclick="removeSigner(this)" title="Remove">✕</button>
+  `;
+  list.appendChild(div);
+}
+
+function removeSigner(btn) {
+  const list = document.getElementById('signers-list');
+  if (list.children.length <= 1) { toast('Keep at least one signer.', 'error'); return; }
+  btn.closest('.signer-row').remove();
+  // renumber
+  Array.from(list.querySelectorAll('.signer-num')).forEach((el, i) => el.textContent = i + 1);
+}
+
+// ── PDF PREVIEW ──
+async function renderPdfPreview() {
+  if (state.pdfRendered || !state.file) {
+    if (!state.file) { toast('No document uploaded.', 'error'); goStep(1); }
+    return;
+  }
+
+  const spinner = document.getElementById('pdf-spinner');
+  spinner.classList.add('show');
+
+  try {
+    const arrayBuffer = await state.file.arrayBuffer();
+
+    if (state.file.name.endsWith('.pdf')) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1);
+      const container = document.getElementById('pdf-container');
+      const canvas = document.getElementById('pdf-canvas');
+      const viewport = page.getViewport({ scale: container.offsetWidth / page.getViewport({ scale: 1 }).width });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    } else {
+      // For non-PDF: show a styled placeholder
+      const canvas = document.getElementById('pdf-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 600; canvas.height = 800;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 600, 800);
+      ctx.fillStyle = '#1e1e1e';
+      ctx.font = '16px Inter, sans-serif';
+      ctx.fillText(`📄 ${state.file.name}`, 40, 60);
+      ctx.fillStyle = '#888';
+      ctx.font = '13px Inter, sans-serif';
+      ctx.fillText('(PDF preview not available for this file type)', 40, 90);
+      ctx.fillText('Field placement is still fully supported below.', 40, 110);
+    }
+
+    // Attach click handler for field placement
+    const container = document.getElementById('pdf-container');
+    container.onclick = placeField;
+    state.pdfRendered = true;
+  } catch (err) {
+    toast('Could not render preview. Fields still work ✓', 'error');
+  }
+  spinner.classList.remove('show');
+}
+
+// ── FIELD PLACEMENT ──
+function selectField(btn) {
+  document.querySelectorAll('.field-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.selectedFieldType = btn.dataset.type;
+  document.getElementById('field-tip').innerHTML =
+    `${btn.textContent} <strong>${state.selectedFieldType}</strong> selected — click anywhere on the document to place it`;
+}
+
+function placeField(e) {
+  const container = document.getElementById('pdf-container');
+  const rect = container.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const pct_x = (x / container.offsetWidth * 100).toFixed(1);
+  const pct_y = (y / container.offsetHeight * 100).toFixed(1);
+
+  const fieldId = 'field_' + Date.now();
+  const field = { id: fieldId, type: state.selectedFieldType, x: pct_x, y: pct_y };
+  state.fields.push(field);
+
+  const el = document.createElement('div');
+  el.className = 'field-overlay';
+  el.id = fieldId;
+  el.style.left = pct_x + '%';
+  el.style.top = pct_y + '%';
+  el.style.transform = 'translate(-50%, -50%)';
+  el.innerHTML = `${getFieldIcon(field.type)} ${field.type} <span class="del-field" onclick="removeField('${fieldId}',event)">✕</span>`;
+  makeDraggable(el, field);
+  container.appendChild(el);
+
+  updateFieldsSummary();
+}
+
+function removeField(id, e) {
+  e.stopPropagation();
+  state.fields = state.fields.filter(f => f.id !== id);
+  document.getElementById(id)?.remove();
+  updateFieldsSummary();
+}
+
+function getFieldIcon(type) {
+  return { 'Signature': '✍️', 'Date': '📅', 'Full Name': '👤', 'Initials': '🔤', 'Text': '💬' }[type] || '📌';
+}
+
+function updateFieldsSummary() {
+  const el = document.getElementById('fields-summary');
+  if (state.fields.length === 0) {
+    el.innerHTML = '<span style="color:var(--muted);font-size:13px;">No fields placed yet.</span>';
+    return;
+  }
+  el.innerHTML = state.fields.map(f =>
+    `<span class="field-chip">${getFieldIcon(f.type)} ${f.type}</span>`
+  ).join('');
+}
+
+function makeDraggable(el, field) {
+  let startX, startY, startLeft, startTop;
+  const container = document.getElementById('pdf-container');
+
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('del-field')) return;
+    e.preventDefault();
+    startX = e.clientX; startY = e.clientY;
+    startLeft = parseFloat(el.style.left); startTop = parseFloat(el.style.top);
+    const onMove = mv => {
+      const dx = (mv.clientX - startX) / container.offsetWidth * 100;
+      const dy = (mv.clientY - startY) / container.offsetHeight * 100;
+      const newL = Math.max(0, Math.min(100, startLeft + dx));
+      const newT = Math.max(0, Math.min(100, startTop + dy));
+      el.style.left = newL + '%'; el.style.top = newT + '%';
+      field.x = newL.toFixed(1); field.y = newT.toFixed(1);
+    };
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ── REVIEW ──
+function populateReview() {
+  document.getElementById('r-docname').textContent = state.file?.name || '—';
+  document.getElementById('r-title').textContent = state.docTitle || '—';
+  document.getElementById('r-owner').textContent = state.ownerEmail || '—';
+  document.getElementById('r-message').textContent = state.docMessage || 'No message added';
+  document.getElementById('r-signers').innerHTML = state.signers.map(s =>
+    `<span class="signer-chip">✉️ ${s.name ? s.name + ' — ' : ''}${s.email}</span>`
+  ).join('');
+  document.getElementById('r-fields').innerHTML = state.fields.map(f =>
+    `<span class="field-chip">${getFieldIcon(f.type)} ${f.type}</span>`
+  ).join('') || '—';
+}
+
+// ── SEND ──
+async function sendDocument() {
+  const btn = document.querySelector('#step4 .btn-primary');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending…';
+
+  state.refId = 'SEN-' + Math.random().toString(36).substring(2,8).toUpperCase();
+
+  const dl = document.getElementById('delivery-status');
+  dl.innerHTML = '';
+
+  const results = [];
+
+  // Send one email per signer via EmailJS
+  for (const s of state.signers) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)';
+    row.innerHTML = `
+      <span style="color:var(--warning);font-size:18px;">⏳</span>
+      <div>
+        <div style="font-size:14px;font-weight:500;">${s.name || s.email}</div>
+        <div style="font-size:12px;color:var(--muted);">${s.email} — Sending…</div>
+      </div>`;
+    dl.appendChild(row);
+
+    try {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: s.email,
+        signer_name: s.name || 'there',
+        owner_name: state.ownerName,
+        doc_title: state.docTitle,
+        message: state.docMessage || 'Please review and sign this document.',
+        signing_link: window.location.href.split('?')[0] + '?ref=' + state.refId,
+        ref_id: state.refId
+      });
+      row.innerHTML = `
+        <span style="color:var(--success);font-size:18px;">✅</span>
+        <div>
+          <div style="font-size:14px;font-weight:500;">${s.name || s.email}</div>
+          <div style="font-size:12px;color:var(--muted);">${s.email} — Email sent ✓</div>
+        </div>`;
+      results.push(true);
+    } catch (err) {
+      row.innerHTML = `
+        <span style="color:var(--red-bright);font-size:18px;">❌</span>
+        <div>
+          <div style="font-size:14px;font-weight:500;">${s.name || s.email}</div>
+          <div style="font-size:12px;color:var(--red-bright);">${s.email} — Failed to send (check EmailJS template fields)</div>
+        </div>`;
+      results.push(false);
+    }
+  }
+
+  // Owner confirmation row (informational — owner copy comes once signer signs in a full backend version)
+  const ownerRow = document.createElement('div');
+  ownerRow.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0';
+  ownerRow.innerHTML = `
+    <span style="color:var(--success);font-size:18px;">✅</span>
+    <div>
+      <div style="font-size:14px;font-weight:500;">${state.ownerName} (You)</div>
+      <div style="font-size:12px;color:var(--muted);">${state.ownerEmail} — Will receive signed copy once all signers complete</div>
+    </div>`;
+  dl.appendChild(ownerRow);
+
+  document.getElementById('ref-id').textContent = 'REF: ' + state.refId;
+  document.getElementById('s-docname').textContent = state.file?.name || '—';
+  document.getElementById('s-owner').textContent = `${state.ownerName} (${state.ownerEmail})`;
+  document.getElementById('s-date').textContent = new Date().toLocaleString('en-NZ');
+  document.getElementById('s-fields').innerHTML = state.fields.map(f =>
+    `<span class="field-chip">${getFieldIcon(f.type)} ${f.type}</span>`
+  ).join('');
+
+  btn.disabled = false;
+  btn.textContent = '🚀 Send for Signing';
+  goStep(5);
+
+  const sentCount = results.filter(Boolean).length;
+  if (sentCount === state.signers.length) {
+    toast(`Email sent to all ${sentCount} signer(s)! ✓`, 'success');
+  } else if (sentCount > 0) {
+    toast(`Sent to ${sentCount}/${state.signers.length} — check failed rows`, 'error');
+  } else {
+    toast('Sending failed — check EmailJS template & service IDs', 'error');
+  }
+}
+
+// ── DOWNLOAD SUMMARY ──
+function downloadSummary() {
+  const content = `
+SIGNEASY NZ — DOCUMENT SUMMARY
+================================
+Reference ID : ${state.refId}
+Date Sent    : ${new Date().toLocaleString('en-NZ')}
+
+DOCUMENT
+--------
+File    : ${state.file?.name || '—'}
+Title   : ${state.docTitle}
+Message : ${state.docMessage || 'None'}
+
+OWNER
+-----
+Name  : ${state.ownerName}
+Email : ${state.ownerEmail}
+
+SIGNERS
+-------
+${state.signers.map((s, i) => `${i + 1}. ${s.name || '(No name)'} — ${s.email}`).join('\n')}
+
+FIELDS PLACED
+-------------
+${state.fields.map((f, i) => `${i + 1}. ${f.type} at position (${f.x}%, ${f.y}%)`).join('\n')}
+
+LEGAL NOTE
+----------
+This document was sent for electronic signing via SignEasy NZ.
+Electronic signatures are legally binding under the Contract and Commercial Law Act 2017 (NZ).
+
+================================
+SignEasy NZ | signeasy.nz
+  `.trim();
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SignEasyNZ_${state.refId}.txt`;
+  a.click();
+}
+
+// ── START NEW ──
+function startNew() {
+  state.file = null; state.signers = []; state.fields = [];
+  state.pdfRendered = false; state.ownerEmail = ''; state.ownerName = '';
+  state.docTitle = ''; state.docMessage = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-chosen').classList.remove('show');
+  document.getElementById('owner-email').value = '';
+  document.getElementById('owner-name').value = '';
+  document.getElementById('doc-title').value = '';
+  document.getElementById('doc-message').value = '';
+  document.getElementById('signers-list').innerHTML = '';
+  document.getElementById('pdf-container').querySelectorAll('.field-overlay').forEach(e => e.remove());
+  state.fields = [];
+  updateFieldsSummary();
+  goStep(1);
+}
+
+// ── TOAST ──
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => el.className = '', 3000);
+}
+</script>
+</body>
+</html>
